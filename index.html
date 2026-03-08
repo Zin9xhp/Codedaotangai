@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Yêu em </title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #000;
+            overflow: hidden;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            /* Ngăn chặn thao tác vuốt cuộn ngoài ý muốn trên điện thoại */
+            touch-action: none; 
+        }
+        canvas {
+            display: block;
+        }
+        #startScreen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #000;
+            color: #ff69b4;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 999;
+            cursor: pointer;
+            font-size: clamp(18px, 5vw, 28px); /* Responsive font cho nút bấm */
+            font-weight: bold;
+            text-align: center;
+            padding: 20px;
+            box-sizing: border-box;
+            user-select: none;
+        }
+    </style>
+</head>
+<body>
+
+<audio id="bgMusic" loop>
+    <source src="kwill--hậu-duệ-mặt-trời.mp3" type="audio/mpeg">
+</audio>
+
+<div id="startScreen">
+    💌 Touch me 💌
+</div>
+
+<canvas id="canvas"></canvas>
+
+<script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+
+    let width, height;
+
+    // ---------------------------------------------------
+    // 1. HIỆU ỨNG MƯA TRÁI TIM 
+    // ---------------------------------------------------
+    const heartSymbols = ['❤', '💖', '💕', '💗', '💓'];
+    const heartSize = 20;
+    let columns;
+    let drops = [];
+
+    function initMatrix() {
+        columns = Math.floor(width / heartSize) + 1;
+        drops = [];
+        for (let x = 0; x < columns; x++) {
+            drops[x] = Math.random() * height; 
+        }
+    }
+
+    function drawMatrix() {
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.15)'; 
+        ctx.fillRect(0, 0, width, height);
+
+        ctx.fillStyle = '#ff3366'; 
+        ctx.font = heartSize + 'px Arial';
+        ctx.textAlign = 'center';
+
+        for (let i = 0; i < drops.length; i++) {
+            const text = heartSymbols[Math.floor(Math.random() * heartSymbols.length)];
+            ctx.fillText(text, i * heartSize + heartSize / 2, drops[i]);
+
+            if (drops[i] > height && Math.random() > 0.975) {
+                drops[i] = -heartSize; 
+            }
+            drops[i] += 1; // Tốc độ rơi
+        }
+    }
+
+    // ---------------------------------------------------
+    // 2. HIỆU ỨNG HẠT (PARTICLES) BIẾN HÌNH CHỮ
+    // ---------------------------------------------------
+    let particles = [];
+    const texts = [
+        "Cúc à",
+         "Chúc em\n ngày quốc tế phụ nữ\nthật vui vẻ",
+        "Gửi lời chúc \nấm áp nhất đến em\ntrong ngày đặc biệt này",
+        "Chúc em\nluôn rạng rỡ nhé!",
+        "Luôn là cô\ngái xinh đẹp\nnhất",
+        "À\nGửi lời chúc của anh \nđến mẹ và em gái em \nnữa nhé",
+        "Yêu"
+    
+    ];
+    let textIndex = 0;
+    let textTimeout;
+
+    class Particle {
+        constructor(x, y) {
+            this.x = Math.random() * width;
+            this.y = Math.random() * height;
+            this.targetX = x;
+            this.targetY = y;
+            this.vx = 0;
+            this.vy = 0;
+            this.friction = 0.85; 
+            this.ease = 0.03 + Math.random() * 0.04;
+            this.size = Math.random() * 1.5 + 1; 
+        }
+
+        update() {
+            const dx = this.targetX - this.x;
+            const dy = this.targetY - this.y;
+            this.vx += dx * this.ease;
+            this.vy += dy * this.ease;
+            this.vx *= this.friction;
+            this.vy *= this.friction;
+            this.x += this.vx;
+            this.y += this.vy;
+        }
+
+        draw() {
+            ctx.fillStyle = '#FFFFFF'; 
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    }
+
+    function getPixels(text) {
+        const offscreen = document.createElement('canvas');
+        offscreen.width = width;
+        offscreen.height = height;
+        const octx = offscreen.getContext('2d', { willReadFrequently: true });
+
+        octx.fillStyle = 'white';
+        
+        // CÔNG THỨC RESPONSIVE FONT SIZE
+        // Dựa vào chiều rộng màn hình, giới hạn nhỏ nhất 30px, lớn nhất 80px
+        let fontSize = Math.floor(width * 0.1);
+        if (fontSize > 80) fontSize = 80;
+        if (fontSize < 30) fontSize = 28;
+
+        octx.font = `bold ${fontSize}px 'Segoe UI', Arial`;
+        octx.textAlign = 'center';
+        octx.textBaseline = 'middle';
+
+        const lines = text.split('\n');
+        const lineHeight = fontSize * 1.2;
+        let startY = (height - (lines.length - 1) * lineHeight) / 2;
+
+        lines.forEach((line, index) => {
+            octx.fillText(line, width / 2, startY + (index * lineHeight));
+        });
+
+        const data = octx.getImageData(0, 0, width, height).data;
+        const pixels = [];
+        
+        // Điều chỉnh mật độ hạt dựa trên kích thước màn hình để tối ưu hiệu năng
+        const gap = width < 600 ? 3 : 4; 
+
+        for (let y = 0; y < height; y += gap) {
+            for (let x = 0; x < width; x += gap) {
+                const alpha = data[(y * width + x) * 4 + 3];
+                if (alpha > 128) {
+                    pixels.push({ x, y });
+                }
+            }
+        }
+        return pixels;
+    }
+
+    function changeText(forceRedraw = false) {
+        clearTimeout(textTimeout);
+        
+        const pixels = getPixels(texts[textIndex]);
+        pixels.sort(() => Math.random() - 0.5); 
+
+        if (particles.length < pixels.length) {
+            const diff = pixels.length - particles.length;
+            for (let i = 0; i < diff; i++) {
+                particles.push(new Particle(width / 2, height / 2));
+            }
+        } else if (particles.length > pixels.length) {
+            particles.splice(pixels.length);
+        }
+
+        for (let i = 0; i < particles.length; i++) {
+            particles[i].targetX = pixels[i].x;
+            particles[i].targetY = pixels[i].y;
+            
+            // Nếu xoay màn hình, cho các hạt bay lại về vị trí mới nhanh hơn một chút
+            if (forceRedraw) {
+                particles[i].x = width / 2;
+                particles[i].y = height / 2;
+            }
+        }
+
+        textIndex = (textIndex + 1) % texts.length;
+        textTimeout = setTimeout(() => changeText(false), 4500); 
+    }
+
+    function animate() {
+        drawMatrix();
+        particles.forEach(p => {
+            p.update();
+            p.draw();
+        });
+        requestAnimationFrame(animate);
+    }
+
+    // ---------------------------------------------------
+    // 3. XỬ LÝ SỰ KIỆN RESIZE (XOAY/GẬP MÀN HÌNH)
+    // ---------------------------------------------------
+    let resizeTimer;
+    function handleResize() {
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(() => {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+            initMatrix(); // Tính toán lại số cột trái tim
+            
+            // Nếu đã qua màn hình chờ, vẽ lại chữ ngay lập tức để căn giữa
+            if (startScreen.style.display === 'none') {
+                textIndex = (textIndex - 1 + texts.length) % texts.length;
+                changeText(true); 
+            }
+        }, 200); // Chờ 200ms sau khi dừng kéo thả cửa sổ mới tính toán để chống giật lag
+    }
+    
+    window.addEventListener('resize', handleResize);
+    
+    // Khởi tạo kích thước ban đầu
+    width = canvas.width = window.innerWidth;
+    height = canvas.height = window.innerHeight;
+    initMatrix();
+
+    // ---------------------------------------------------
+    // 4. BẮT ĐẦU KHI CHẠM
+    // ---------------------------------------------------
+    const startScreen = document.getElementById('startScreen');
+    const bgMusic = document.getElementById('bgMusic');
+
+    startScreen.addEventListener('click', function() {
+        startScreen.style.display = 'none';
+        
+        bgMusic.play().catch(error => {
+            console.log("Trình duyệt chặn phát nhạc:", error);
+        });
+
+        setTimeout(() => changeText(false), 500); 
+        animate();
+    });
+
+</script>
+</body>
+</html>
+
+
+
+
+
+
